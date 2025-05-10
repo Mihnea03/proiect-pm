@@ -13,11 +13,10 @@
 
 void startCameraServer();
 
-void setup() {
+void configESP() {
   Serial.begin(CONFIG_BAUD);
   Serial.setDebugOutput(true);
   Serial.println();
-  Serial.printf("SDK version: %s\n", ESP.getSdkVersion());
 
   camera_config_t config;
   config.ledc_channel = LEDC_CHANNEL_0;
@@ -40,10 +39,6 @@ void setup() {
   config.pin_reset = RESET_GPIO_NUM;
   config.xclk_freq_hz = 20000000;
   config.pixel_format = PIXFORMAT_JPEG;
-#if !defined(NO_GRAB_MODE)
-  config.grab_mode = CAMERA_GRAB_LATEST;   // https://github.com/espressif/arduino-esp32/issues/5805#issuecomment-951861112
-  Serial.println("Camera buffer grab mode set to latest image");
-#endif
 
   // if PSRAM IC present, init with UXGA resolution and higher JPEG quality
   //                      for larger pre-allocated frame buffer.
@@ -57,11 +52,6 @@ void setup() {
     config.fb_count = 1;
   }
 
-#if defined(CAMERA_MODEL_ESP_EYE)
-  pinMode(13, INPUT_PULLUP);
-  pinMode(14, INPUT_PULLUP);
-#endif
-
   // camera init
   esp_err_t err = esp_camera_init(&config);
   if (err != ESP_OK) {
@@ -70,27 +60,15 @@ void setup() {
   }
 
   sensor_t * s = esp_camera_sensor_get();
+
   // initial sensors are flipped vertically and colors are a bit saturated
   if (s->id.PID == OV3660_PID) {
+    s->set_hmirror(s, 1); // flip it back
     s->set_vflip(s, 1); // flip it back
-    s->set_brightness(s, 1); // up the brightness just a bit
-    s->set_saturation(s, -2); // lower the saturation
+    s->set_brightness(s, 2); // up the brightness just a bit
+    s->set_saturation(s, 0); // lower the saturation
   }
 
-/*
-// moved to config.h
-#if defined(CAMERA_MODEL_M5STACK_WIDE) || defined(CAMERA_MODEL_M5STACK_ESP32CAM)
-  s->set_vflip(s, 1);
-  s->set_hmirror(s, 1);
-#endif
-*/
-
-#if defined(CONFIG_V_FLIP)
-  s->set_vflip(s, 1);
-#endif
-#if defined(CONFIG_H_MIRROR)
-  s->set_hmirror(s, 1);
-#endif
 
 #if defined(CONFIG_ESP_FACE_DETECT_ENABLED)
   #if defined(CONFIG_DEFAULT_RESOLUTION) && (CONFIG_DEFAULT_RESOLUTION < FRAMESIZE_CIF)
@@ -173,6 +151,11 @@ void setup() {
     Serial.println("Error starting mDNS");
   }
 #endif // defined(CONFIG_MDNS_ADVERTISE_ENABLED)
+
+}
+
+void setup() {
+  configESP();
 
   startCameraServer();
 
