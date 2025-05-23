@@ -3,21 +3,16 @@
 // .ino files in PlatformIO
 
 #include <Arduino.h>
+#include <Wire.h>
 #include "esp_camera.h"
 #include <WiFi.h>
 #include "config.h"
 #include "camera_pins.h"
-#if defined(CONFIG_MDNS_ADVERTISE_ENABLED)
-  #include "ESPmDNS.h"
-#endif
+#include "peripherals.h"
 
 void startCameraServer();
 
 void configESP() {
-  Serial.begin(CONFIG_BAUD);
-  Serial.setDebugOutput(true);
-  Serial.println();
-
   camera_config_t config;
   config.ledc_channel = LEDC_CHANNEL_0;
   config.ledc_timer = LEDC_TIMER_0;
@@ -58,139 +53,88 @@ void configESP() {
     Serial.printf("Camera init failed with error 0x%x", err);
     return;
   }
-
+  
   sensor_t * s = esp_camera_sensor_get();
-
+  
   // initial sensors are flipped vertically and colors are a bit saturated
   if (s->id.PID == OV3660_PID) {
-    s->set_hmirror(s, 1); // flip it back
-    s->set_vflip(s, 1); // flip it back
-    s->set_brightness(s, 2); // up the brightness just a bit
-    s->set_saturation(s, 0); // lower the saturation
+    s->set_framesize(s, FRAMESIZE_CIF);       // 320x240 - faster and good for face recognition
+    s->set_quality(s, 12);                     // JPEG quality: 10 (better) to 63 (worst); 12 is decent
+    s->set_brightness(s, 1);                   // Adjust based on lighting conditions
+    s->set_contrast(s, 0);                     // Keep neutral
+    s->set_saturation(s, 0);                   // Keep neutral
+    s->set_whitebal(s, 1);                     // Enable auto white balance
+    s->set_gain_ctrl(s, 1);                    // Auto gain
+    s->set_exposure_ctrl(s, 1);                // Auto exposure
+    s->set_awb_gain(s, 1);                     // Auto white balance gain
+    s->set_vflip(s, 1);                        // Flip vertically if needed
+    s->set_hmirror(s, 0);                      // Flip horizontally if needed
+    s->set_special_effect(s, 0);              // No special effect
   }
-
-
-#if defined(CONFIG_ESP_FACE_DETECT_ENABLED)
-  #if defined(CONFIG_DEFAULT_RESOLUTION) && (CONFIG_DEFAULT_RESOLUTION < FRAMESIZE_CIF)
-  s->set_framesize(s, CONFIG_DEFAULT_RESOLUTION);
-  #else
-  s->set_framesize(s, FRAMESIZE_QVGA);
-  #endif
-#elif defined(CONFIG_DEFAULT_RESOLUTION)
-  s->set_framesize(s, CONFIG_DEFAULT_RESOLUTION);
-#endif
-#if defined(CONFIG_DEFAULT_QUALITY)
-  s->set_quality(s, CONFIG_DEFAULT_QUALITY);
-#endif
-
-#if defined(CONFIG_STATIC_IP_ENABLED)
-  IPAddress staticIP;
-  IPAddress subnet;
-  IPAddress gateway;
-  IPAddress dns1;
-  IPAddress dns2;
-
-  int iperr = 0;
-  if (!staticIP.fromString(CONFIG_STATICIP)) {
-    Serial.println("Invalid CONFIG_STATICIP");
-    iperr++;
-  }
-  if (!subnet.fromString(CONFIG_SUBNET)) {
-    Serial.println("Invalid CONFIG_SUBNET");
-    iperr++;
-  }
-  if (!gateway.fromString(CONFIG_GATEWAY)) {
-    Serial.println("Invalid CONFIG_GATEWAY");
-    iperr++;
-  }
-#if defined(CONFIG_DNS1)
-  if (!dns1.fromString(CONFIG_DNS1)) {
-    Serial.println("Invalid CONFIG_DNS1");
-    iperr++;
-  }
-#else
-  dns1 = gateway;
-#endif
-#if defined(CONFIG_DNS2)
-  if (!dns2.fromString(CONFIG_DNS2)) {
-    Serial.println("Invalid CONFIG_DNS2");
-    iperr++;
-  }
-#else
-  dns2 = gateway;
-#endif
-
-  if (!iperr) {
-   if (!WiFi.config(staticIP, gateway, subnet, dns1, dns2)) {
-      Serial.println("Static IP configuration failed.");
-   }
-  }
-#endif // defined(CONFIG_STATIC_IP_ENABLED)
 
   WiFi.begin(CONFIG_WIFI_SSID, CONFIG_WIFI_PWD);
-
+  
   while (WiFi.status() != WL_CONNECTED) {
     delay(500);
     Serial.print(".");
   }
   Serial.println("");
   Serial.println("WiFi connected");
-
-#if defined(CONFIG_MDNS_ADVERTISE_ENABLED)
-  String mdnsHostname;
-  #if defined(CONFIG_LOCAL_HOSTNAME)
-    if (MDNS.begin(CONFIG_LOCAL_HOSTNAME)) {
-     mdnsHostname = CONFIG_LOCAL_HOSTNAME;
-  #else
-    if (MDNS.begin("esp32-cam")) {
-     mdnsHostname = "esp32-cam";
-  #endif
-    MDNS.addService("http", "tcp", 80);
-    Serial.println("mDNS advertising started");
-  } else {
-    Serial.println("Error starting mDNS");
-  }
-#endif // defined(CONFIG_MDNS_ADVERTISE_ENABLED)
-
 }
 
 void setup() {
-  configESP();
+  delay(5000);
+  Serial.begin(CONFIG_BAUD);
+  Serial.setDebugOutput(true);
+  Serial.println("Starting configuration...");
 
-  startCameraServer();
+  // configESP();
 
-#if defined(CONFIG_LED_ILLUMINATOR_ENABLED)
-  ledcSetup(CONFIG_LED_LEDC_CHANNEL, CONFIG_FLASH_PWM_FREQ, CONFIG_FLASH_PWM_BITS);
-  ledcAttachPin(CONFIG_FLASH_LED, CONFIG_LED_LEDC_CHANNEL);
-  Serial.println("Flash LED configured.");
-#endif // defined(CONFIG_LED_ILLUMINATOR_ENABLED)
+  // startCameraServer();
 
-  Serial.println("Camera Ready!");
-  Serial.print("Use 'http://");
-  Serial.print(WiFi.localIP());
-#if defined(CONFIG_MDNS_ADVERTISE_ENABLED)
-  if (mdnsHostname.length() > 0) {
-    Serial.print("' or 'http://");
-    Serial.print(mdnsHostname);
-    Serial.print(".local");
-  }
-#endif // defined(CONFIG_MDNS_ADVERTISE_ENABLED)
-  Serial.println("' to connect.");
+  // ledcSetup(CONFIG_LED_LEDC_CHANNEL, CONFIG_FLASH_PWM_FREQ, CONFIG_FLASH_PWM_BITS);
+  // ledcAttachPin(CONFIG_FLASH_LED, CONFIG_LED_LEDC_CHANNEL);
+  // Serial.println("Flash LED configured.");
 
-#if defined(CONFIG_SHOW_NETWORK_PARAMS)
-  Serial.print("Gateway: ");
-  Serial.println(WiFi.gatewayIP());
-  Serial.print("Subnet mask: ");
-  Serial.println(WiFi.subnetMask());
-  Serial.print("DNS server 1: ");
-  Serial.println(WiFi.dnsIP(0));
-  Serial.print("DNS server 2: ");
-  Serial.println(WiFi.dnsIP(1));
-#endif // defined(CONFIG_SHOW_NETWORK_PARAMS)
+  // Serial.println("Camera Ready!");
+  // Serial.print("Use 'http://");
+  // Serial.print(WiFi.localIP());
+  // Serial.println("' to connect.");
+  
+  init_buzzer();
+  init_lcd();
+  init_pir();
+  
+  // Serial.println("LCD INIT");
+
+  lcd_print("Mihnea", 1);
 
 }
 
 void loop() {
+  // if (check_pir()) {
+  //   Serial.println("PIR detected motion!");
+  // }
+  int value = digitalRead(PIR_OUT);
+  Serial.println(value); // Should print 1 (motion) or 0 (idle)
+  delay(500);
   // put your main code here, to run repeatedly:
-  delay(10000);
+  // update_alarm();
+
+  // if (check_pir())
+  //   start_alarm(10000, 100);
+  // for (byte address = 1; address < 127; address++) {
+  //   Wire.beginTransmission(address);
+  //   if (Wire.endTransmission() == 0) {
+  //     Serial.print("I2C device found at address 0x");
+  //     Serial.println(address, HEX);
+  //   }
+  // }
+  // delay(3000);
+  // digitalWrite(BUZZER, HIGH);
+  // delay(200);
+  // digitalWrite(BUZZER, LOW);
+  // delay(200);
+
 }
+
