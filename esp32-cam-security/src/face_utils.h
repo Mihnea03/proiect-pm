@@ -2,7 +2,4 @@
 
 #include "fd_forward.h"
 
-extern mtmn_config_t mtmn_config;
-
-void init_face_detection();
-bool isFaceDetected();
+extern volatile bool face_detected_flag;

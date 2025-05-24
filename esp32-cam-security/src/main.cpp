@@ -12,6 +12,7 @@
 #include "face_utils.h"
 
 int current_state = 0;
+volatile bool face_detected_flag = false;
 
 void startCameraServer();
 
@@ -41,11 +42,11 @@ void configESP() {
   // if PSRAM IC present, init with UXGA resolution and higher JPEG quality
   //                      for larger pre-allocated frame buffer.
   if(psramFound()){
-    config.frame_size = FRAMESIZE_UXGA;
+    config.frame_size = FRAMESIZE_240X240;
     config.jpeg_quality = 10;
     config.fb_count = 2;
   } else {
-    config.frame_size = FRAMESIZE_SVGA;
+    config.frame_size = FRAMESIZE_240X240;
     config.jpeg_quality = 12;
     config.fb_count = 1;
   }
@@ -56,36 +57,16 @@ void configESP() {
     Serial.printf("Camera init failed with error 0x%x", err);
     return;
   }
+
+  WiFi.begin(CONFIG_WIFI_SSID, CONFIG_WIFI_PWD);
   
-  sensor_t * s = esp_camera_sensor_get();
-  
-  // initial sensors are flipped vertically and colors are a bit saturated
-  if (s->id.PID == OV3660_PID) {
-    s->set_framesize(s, FRAMESIZE_CIF);       // 320x240 - faster and good for face recognition
-    s->set_quality(s, 12);                     // JPEG quality: 10 (better) to 63 (worst); 12 is decent
-    s->set_brightness(s, 1);                   // Adjust based on lighting conditions
-    s->set_contrast(s, 0);                     // Keep neutral
-    s->set_saturation(s, 0);                   // Keep neutral
-    s->set_whitebal(s, 1);                     // Enable auto white balance
-    s->set_gain_ctrl(s, 1);                    // Auto gain
-    s->set_exposure_ctrl(s, 1);                // Auto exposure
-    s->set_awb_gain(s, 1);                     // Auto white balance gain
-    s->set_vflip(s, 1);                        // Flip vertically if needed
-    s->set_hmirror(s, 0);                      // Flip horizontally if needed
-    s->set_special_effect(s, 0);              // No special effect
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(500);
+    Serial.print(".");
   }
+  Serial.println("");
+  Serial.println("WiFi connected");
 
-  // WiFi.begin(CONFIG_WIFI_SSID, CONFIG_WIFI_PWD);
-  
-  // while (WiFi.status() != WL_CONNECTED) {
-  //   delay(500);
-  //   Serial.print(".");
-  // }
-  // Serial.println("");
-  // Serial.println("WiFi connected");
-
-  init_face_detection();
-  Serial.println("Face detection initialized.");
 
   ledcSetup(CONFIG_LED_LEDC_CHANNEL, CONFIG_FLASH_PWM_FREQ, CONFIG_FLASH_PWM_BITS);
   ledcAttachPin(CONFIG_FLASH_LED, CONFIG_LED_LEDC_CHANNEL);
@@ -110,8 +91,7 @@ void setup() {
   init_lcd();
   init_pir();
 
-  
-  // startCameraServer();
+  startCameraServer();
 
   current_state = STATE_READY;
 
@@ -131,18 +111,18 @@ void loop() {
       lcd_print(CAMERA_ON_MSG, 0);
     }
   } else if (current_state == STATE_CAMERA_ON) {
-    if (isFaceDetected()) {
+    if (face_detected_flag) {
+      Serial.println("Face detected!");
       current_state = STATE_INTRUDER_DETECTED;
       lcd_print(INTRUDER_DETECTED_MSG, 0);
+      start_alarm(ALARM_DURATION, ALARM_TIME_BETWEEN);
     }
   } else if (current_state == STATE_INTRUDER_DETECTED) {
-    lcd_print(INTRUDER_DETECTED_MSG, 0);
-    start_alarm(ALARM_DURATION, ALARM_TIME_BETWEEN);
-    
-    // if (!isFaceDetected()) {
-    //   current_state = STATE_READY;
-    //   lcd_print(READY_MSG, 0);
-    // }
+    if (!face_detected_flag) {
+      current_state = STATE_READY;
+      lcd_print(READY_MSG, 0);
+      face_detected_flag = false;
+    }
   }
 
   delay(200);

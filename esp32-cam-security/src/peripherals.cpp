@@ -1,6 +1,7 @@
 #include <Arduino.h>
 #include <LiquidCrystal_I2C.h>
 #include <Wire.h>
+#include "face_utils.h"
 
 #include "peripherals.h"
 
@@ -38,6 +39,7 @@ void update_alarm() {
     if (now >= alarm_end_time) {
         alarm_active = false;
         digitalWrite(BUZZER, LOW);
+        face_detected_flag = false;
         return;
     } else {
         buzzer_state = !buzzer_state;

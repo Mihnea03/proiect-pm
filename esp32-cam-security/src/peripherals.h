@@ -1,4 +1,5 @@
 #include <string.h>
+#include "config.h"	
 
 #define BUZZER 13
 #define PIR_OUT 16

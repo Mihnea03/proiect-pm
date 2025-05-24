@@ -17,7 +17,6 @@
   //#define CONFIG_H_MIRROR
 #endif
 
-
 // common configuration
 
 #define ALARM_DURATION 2000
