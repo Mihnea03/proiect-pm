@@ -9,7 +9,6 @@ void init_buzzer();
 void start_alarm(int duration, int time_between);
 void update_alarm();
 
-
 void init_lcd();
 void lcd_print(const char *msg, int line);
 

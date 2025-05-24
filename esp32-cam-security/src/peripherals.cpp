@@ -19,6 +19,9 @@ static int toggle_interval = 0;
 static bool buzzer_state = false;
 
 void start_alarm(int duration, int time_between) {
+    if (alarm_active)
+        return;
+
     alarm_active = true;
     alarm_end_time = millis() + duration;
     last_toggle_time = millis();
@@ -36,12 +39,9 @@ void update_alarm() {
         alarm_active = false;
         digitalWrite(BUZZER, LOW);
         return;
-    }
-
-    if (now - last_toggle_time >= toggle_interval) {
+    } else {
         buzzer_state = !buzzer_state;
         digitalWrite(BUZZER, buzzer_state ? HIGH : LOW);
-        last_toggle_time = now;
     }
 }
 
@@ -65,7 +65,8 @@ void init_lcd() {
 }
 
 void lcd_print(const char *msg, int line) {
-	lcd.clear();
-	lcd.setCursor(0, line);
-	lcd.print(msg);
+    lcd.setCursor(0, line);
+    for (int i = 0; i < 16; i++) lcd.print(' ');
+    lcd.setCursor(0, line);
+    lcd.print(msg);
 }

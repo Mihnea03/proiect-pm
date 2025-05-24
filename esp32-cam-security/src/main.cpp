@@ -9,6 +9,9 @@
 #include "config.h"
 #include "camera_pins.h"
 #include "peripherals.h"
+#include "face_utils.h"
+
+int current_state = 0;
 
 void startCameraServer();
 
@@ -72,14 +75,26 @@ void configESP() {
     s->set_special_effect(s, 0);              // No special effect
   }
 
-  WiFi.begin(CONFIG_WIFI_SSID, CONFIG_WIFI_PWD);
+  // WiFi.begin(CONFIG_WIFI_SSID, CONFIG_WIFI_PWD);
   
-  while (WiFi.status() != WL_CONNECTED) {
-    delay(500);
-    Serial.print(".");
-  }
-  Serial.println("");
-  Serial.println("WiFi connected");
+  // while (WiFi.status() != WL_CONNECTED) {
+  //   delay(500);
+  //   Serial.print(".");
+  // }
+  // Serial.println("");
+  // Serial.println("WiFi connected");
+
+  init_face_detection();
+  Serial.println("Face detection initialized.");
+
+  ledcSetup(CONFIG_LED_LEDC_CHANNEL, CONFIG_FLASH_PWM_FREQ, CONFIG_FLASH_PWM_BITS);
+  ledcAttachPin(CONFIG_FLASH_LED, CONFIG_LED_LEDC_CHANNEL);
+  Serial.println("Flash LED configured.");
+
+  Serial.println("Camera Ready!");
+  Serial.print("Use 'http://");
+  Serial.print(WiFi.localIP());
+  Serial.println("' to connect.");
 }
 
 void setup() {
@@ -88,53 +103,48 @@ void setup() {
   Serial.setDebugOutput(true);
   Serial.println("Starting configuration...");
 
-  // configESP();
+  configESP();
 
-  // startCameraServer();
-
-  // ledcSetup(CONFIG_LED_LEDC_CHANNEL, CONFIG_FLASH_PWM_FREQ, CONFIG_FLASH_PWM_BITS);
-  // ledcAttachPin(CONFIG_FLASH_LED, CONFIG_LED_LEDC_CHANNEL);
-  // Serial.println("Flash LED configured.");
-
-  // Serial.println("Camera Ready!");
-  // Serial.print("Use 'http://");
-  // Serial.print(WiFi.localIP());
-  // Serial.println("' to connect.");
-  
+  // Peripherals
   init_buzzer();
   init_lcd();
   init_pir();
+
   
-  // Serial.println("LCD INIT");
+  // startCameraServer();
 
-  lcd_print("Mihnea", 1);
+  current_state = STATE_READY;
 
+  // Show IP for connecting to the web server
+  String ip_str = WiFi.localIP().toString();
+  lcd_print(ip_str.c_str(), 1);
+
+  lcd_print(READY_MSG, 0);
 }
 
 void loop() {
-  // if (check_pir()) {
-  //   Serial.println("PIR detected motion!");
-  // }
-  int value = digitalRead(PIR_OUT);
-  Serial.println(value); // Should print 1 (motion) or 0 (idle)
-  delay(500);
-  // put your main code here, to run repeatedly:
-  // update_alarm();
+  update_alarm();
 
-  // if (check_pir())
-  //   start_alarm(10000, 100);
-  // for (byte address = 1; address < 127; address++) {
-  //   Wire.beginTransmission(address);
-  //   if (Wire.endTransmission() == 0) {
-  //     Serial.print("I2C device found at address 0x");
-  //     Serial.println(address, HEX);
-  //   }
-  // }
-  // delay(3000);
-  // digitalWrite(BUZZER, HIGH);
-  // delay(200);
-  // digitalWrite(BUZZER, LOW);
-  // delay(200);
+  if (current_state == STATE_READY) {
+    if (check_pir()) {
+      current_state = STATE_CAMERA_ON;
+      lcd_print(CAMERA_ON_MSG, 0);
+    }
+  } else if (current_state == STATE_CAMERA_ON) {
+    if (isFaceDetected()) {
+      current_state = STATE_INTRUDER_DETECTED;
+      lcd_print(INTRUDER_DETECTED_MSG, 0);
+    }
+  } else if (current_state == STATE_INTRUDER_DETECTED) {
+    lcd_print(INTRUDER_DETECTED_MSG, 0);
+    start_alarm(ALARM_DURATION, ALARM_TIME_BETWEEN);
+    
+    // if (!isFaceDetected()) {
+    //   current_state = STATE_READY;
+    //   lcd_print(READY_MSG, 0);
+    // }
+  }
 
+  delay(200);
 }
 
