@@ -66,3 +66,7 @@ Hardware:
 
 - https://www.handsontec.com/dataspecs/module/ESP32-CAM.pdf
 - Magazine online: emag.ro, optimusdigital.ro
+
+## Demo
+
+https://youtu.be/PCld8pRs5Gw?si=RD_WUOPADhI0grXb
