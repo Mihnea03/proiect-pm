@@ -1,24 +1,21 @@
-#include "core_version.h" // to get the installed ESP32 arduino core version
-#include "sensor.h"       // for framesize_t enumerated type to set the default camera resolution
+#include "core_version.h" 
+#include "sensor.h"       
 
-#define CAMERA_MODEL_AI_THINKER           //has PSRAM
+#define CAMERA_MODEL_AI_THINKER
 
 #if defined(CAMERA_MODEL_AI_THINKER)
   #define LED_BUILTIN     33
   #define LED_BUILTIN_ON  LOW
   // Flash LED configuration
   #define CONFIG_FLASH_LED 4
-  #define CONFIG_LED_LEDC_CHANNEL  LEDC_CHANNEL_7   // Channel 0 is used by camera
+  #define CONFIG_LED_LEDC_CHANNEL  LEDC_CHANNEL_7
 
   // Camera settings at startup
-  #define CONFIG_DEFAULT_RESOLUTION FRAMESIZE_CIF  // 800x600
+  #define CONFIG_DEFAULT_RESOLUTION FRAMESIZE_CIF
   #define CONFIG_DEFAULT_QUALITY 4
-  //#define CONFIG_V_FLIP
-  //#define CONFIG_H_MIRROR
 #endif
 
 // common configuration
-
 #define ALARM_DURATION 2000
 #define ALARM_TIME_BETWEEN 200
 
