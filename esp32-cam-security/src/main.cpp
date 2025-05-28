@@ -10,6 +10,8 @@
 #include "camera_pins.h"
 #include "peripherals.h"
 #include "face_utils.h"
+#include "soc/soc.h"
+#include "soc/rtc_cntl_reg.h"
 
 int current_state = 0;
 volatile bool face_detected_flag = false;
@@ -17,6 +19,8 @@ volatile bool face_detected_flag = false;
 void startCameraServer();
 
 void configESP() {
+  WRITE_PERI_REG(RTC_CNTL_BROWN_OUT_REG, 0);
+  
   camera_config_t config;
   config.ledc_channel = LEDC_CHANNEL_0;
   config.ledc_timer = LEDC_TIMER_0;
@@ -38,18 +42,9 @@ void configESP() {
   config.pin_reset = RESET_GPIO_NUM;
   config.xclk_freq_hz = 20000000;
   config.pixel_format = PIXFORMAT_JPEG;
-
-  // if PSRAM IC present, init with UXGA resolution and higher JPEG quality
-  //                      for larger pre-allocated frame buffer.
-  if(psramFound()){
-    config.frame_size = FRAMESIZE_240X240;
-    config.jpeg_quality = 10;
-    config.fb_count = 2;
-  } else {
-    config.frame_size = FRAMESIZE_240X240;
-    config.jpeg_quality = 12;
-    config.fb_count = 1;
-  }
+  config.frame_size = FRAMESIZE_240X240; // Set default frame size
+  config.jpeg_quality = 12; // Set default JPEG quality
+  config.fb_count = 1; // Set default frame buffer count
 
   // camera init
   esp_err_t err = esp_camera_init(&config);
@@ -58,6 +53,7 @@ void configESP() {
     return;
   }
 
+  delay(1000);
   WiFi.begin(CONFIG_WIFI_SSID, CONFIG_WIFI_PWD);
   
   while (WiFi.status() != WL_CONNECTED) {
@@ -66,6 +62,8 @@ void configESP() {
   }
   Serial.println("");
   Serial.println("WiFi connected");
+
+  delay(1000);
 
 
   ledcSetup(CONFIG_LED_LEDC_CHANNEL, CONFIG_FLASH_PWM_FREQ, CONFIG_FLASH_PWM_BITS);
@@ -100,17 +98,23 @@ void setup() {
   lcd_print(ip_str.c_str(), 1);
 
   lcd_print(READY_MSG, 0);
+
+  enable_flash(false);
 }
 
 void loop() {
   update_alarm();
 
   if (current_state == STATE_READY) {
+    enable_flash(false);
+    
     if (check_pir()) {
       current_state = STATE_CAMERA_ON;
       lcd_print(CAMERA_ON_MSG, 0);
     }
   } else if (current_state == STATE_CAMERA_ON) {
+    enable_flash(true);
+
     if (face_detected_flag) {
       Serial.println("Face detected!");
       current_state = STATE_INTRUDER_DETECTED;
@@ -118,6 +122,8 @@ void loop() {
       start_alarm(ALARM_DURATION, ALARM_TIME_BETWEEN);
     }
   } else if (current_state == STATE_INTRUDER_DETECTED) {
+    enable_flash(true);
+
     if (!face_detected_flag) {
       current_state = STATE_READY;
       lcd_print(READY_MSG, 0);

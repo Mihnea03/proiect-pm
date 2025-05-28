@@ -1,9 +1,9 @@
 #include <Arduino.h>
 #include <LiquidCrystal_I2C.h>
 #include <Wire.h>
-#include "face_utils.h"
 
 #include "peripherals.h"
+#include "driver/ledc.h"
 
 LiquidCrystal_I2C lcd(0x27, 16, 2);
 
@@ -71,4 +71,11 @@ void lcd_print(const char *msg, int line) {
     for (int i = 0; i < 16; i++) lcd.print(' ');
     lcd.setCursor(0, line);
     lcd.print(msg);
+}
+
+// LED
+void enable_flash(bool en)
+{
+    int duty = en ? 255 : 0;
+    ledcWrite(CONFIG_LED_LEDC_CHANNEL, duty);
 }

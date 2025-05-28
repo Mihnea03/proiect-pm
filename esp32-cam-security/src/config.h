@@ -1,5 +1,6 @@
 #include "core_version.h" 
-#include "sensor.h"       
+#include "sensor.h"
+#include "esp32-hal-ledc.h"
 
 #define CAMERA_MODEL_AI_THINKER
 

@@ -1,5 +1,6 @@
 #include <string.h>
 #include "config.h"	
+#include "face_utils.h"
 
 #define BUZZER 13
 #define PIR_OUT 16
@@ -15,3 +16,5 @@ void lcd_print(const char *msg, int line);
 
 void init_pir();
 bool check_pir();
+
+void enable_flash(bool en);
